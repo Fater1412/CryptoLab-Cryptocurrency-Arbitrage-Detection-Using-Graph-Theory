@@ -114,18 +114,34 @@ def _validate_rate_value(rate: Any) -> float:
     return float(rate)
 
 
-def validate_conversion_rate(source: Any, target: Any, rate: Any) -> ConversionRate:
+def validate_conversion_rate(source: Any, target: Any = None, rate: Any = None) -> ConversionRate:
     """
     Validate parameters and return a normalized ConversionRate instance.
 
+    Supports:
+    - 3 positional arguments: validate_conversion_rate(source, target, rate)
+    - 1 dict argument: validate_conversion_rate({"source": ..., "target": ..., "rate": ...})
+    - 1 tuple/list argument: validate_conversion_rate(("BTC", "ETH", 20.0))
+    - 1 ConversionRate instance: validate_conversion_rate(conversion_rate)
+
     Args:
-        source: Source currency symbol (e.g. 'BTC').
-        target: Target currency symbol (e.g. 'ETH').
-        rate: Numeric exchange rate (> 0).
+        source: Source currency symbol, or dict/tuple containing all fields.
+        target: Target currency symbol (optional if source is composite).
+        rate: Numeric exchange rate (> 0) (optional if source is composite).
 
     Returns:
         ConversionRate: Validated ConversionRate instance.
     """
+    if target is None and rate is None:
+        if isinstance(source, ConversionRate):
+            return source
+        if isinstance(source, dict):
+            return ConversionRate.from_dict(source)
+        if isinstance(source, (tuple, list)) and len(source) == 3:
+            return ConversionRate(source=source[0], target=source[1], rate=source[2])
+        raise TypeError(
+            f"Expected ConversionRate, dict, or (source, target, rate) tuple, got {type(source).__name__}"
+        )
     return ConversionRate(source=source, target=target, rate=rate)
 
 
@@ -241,3 +257,71 @@ def get_arbitrage_sample_rates() -> List[ConversionRate]:
         ConversionRate(source=src, target=tgt, rate=r)
         for src, tgt, r in _SIMULATED_ARBITRAGE_RATES_DATA
     ]
+
+
+# Simulated rates containing a narrow arbitrage opportunity (+0.50% gross)
+# that is eliminated or turned into a net loss when typical exchange fees are deducted
+# Cycle: BTC -> ETH -> USDT -> BTC
+# Rates: 20.10 * 3000.0 * (1 / 60000.0) = 1.0050 (+0.50% gross return)
+# Breakeven fee: f* = [1 - (1/1.0050)^(1/3)] * 100% ≈ 0.1659%
+# At standard fee f = 0.20%, net return is negative (-0.10%)
+_SIMULATED_FEE_CONSUMED_RATES_DATA: Tuple[Tuple[str, str, float], ...] = (
+    ("BTC", "ETH", 20.10),
+    ("ETH", "USDT", 3000.0),
+    ("USDT", "BTC", 1.0 / 60000.0),
+    ("USDT", "ETH", 1.0 / 3000.0),
+    ("ETH", "BTC", 1.0 / 20.10),
+    ("BTC", "USDT", 60000.0),
+)
+
+
+def get_fee_consumed_sample_rates() -> List[ConversionRate]:
+    """
+    Retrieve a simulated dataset containing a subtle arbitrage opportunity (+0.50% gross)
+    that demonstrates how transaction fees can consume or reverse a gross profit.
+
+    DISCLAIMER: These rates are illustrative and synthetic, not live market data.
+
+    Returns:
+        List[ConversionRate]: Validated sample conversion rates.
+    """
+    return [
+        ConversionRate(source=src, target=tgt, rate=r)
+        for src, tgt, r in _SIMULATED_FEE_CONSUMED_RATES_DATA
+    ]
+
+
+# Simulated Indian Market Arbitrage Scenario (INR / USDT / BTC)
+# Explores regional pricing premiums common between international and domestic Indian exchanges
+# Cycle: INR -> USDT -> BTC -> INR
+# Rates:
+#   INR -> USDT: 1 / 88.0 (Buy USDT at ₹88)
+#   USDT -> BTC: 1 / 60000.0 (Buy BTC at $60,000 on international exchange)
+#   BTC -> INR: 5400000.0 (Sell BTC at ₹54 Lakhs on domestic Indian exchange)
+# Product: (1 / 88) * (1 / 60000) * 5400000 = 5400000 / 5280000 = 1.022727 (+2.27% gross profit)
+_SIMULATED_INR_ARBITRAGE_RATES_DATA: Tuple[Tuple[str, str, float], ...] = (
+    ("INR", "USDT", 1.0 / 88.0),
+    ("USDT", "BTC", 1.0 / 60000.0),
+    ("BTC", "INR", 5400000.0),
+    ("USDT", "INR", 88.0),
+    ("BTC", "USDT", 60000.0),
+    ("INR", "BTC", 1.0 / 5400000.0),
+)
+
+
+def get_inr_arbitrage_sample_rates() -> List[ConversionRate]:
+    """
+    Retrieve a simulated dataset containing an intentional triangular
+    arbitrage opportunity involving Indian Rupees (INR -> USDT -> BTC -> INR with +2.27% return).
+
+    DISCLAIMER: These rates are illustrative and synthetic, not live market data.
+
+    Returns:
+        List[ConversionRate]: Validated sample conversion rates with an INR arbitrage cycle.
+    """
+    return [
+        ConversionRate(source=src, target=tgt, rate=r)
+        for src, tgt, r in _SIMULATED_INR_ARBITRAGE_RATES_DATA
+    ]
+
+

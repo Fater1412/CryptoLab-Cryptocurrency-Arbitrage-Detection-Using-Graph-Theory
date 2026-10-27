@@ -45,31 +45,34 @@ This project bridges fundamental mathematical theory and computational implement
 ```text
 CryptoLab/
 ├── app.py                          # Streamlit interactive dashboard entry point
-├── requirements.txt                # Initial project dependencies
+├── requirements.txt                # Project dependencies (streamlit, pandas, networkx, plotly)
 ├── README.md                       # Project documentation and theoretical overview
 ├── .gitignore                      # Python and environment ignore rules
 ├── src/
 │   ├── __init__.py                 # Package marker
-│   ├── exchange_rates.py           # Rate matrix representation and validation
-│   ├── graph_builder.py            # Digraph construction with negative log weights
-│   ├── arbitrage_detector.py       # Custom Bellman-Ford negative cycle detection
-│   └── profit_calculator.py        # Arbitrage return and step execution calculations
+│   ├── exchange_rates.py           # Rate dataclasses, validation, and simulated sample datasets
+│   ├── graph_builder.py            # Digraph construction with negative log weights (-ln R)
+│   ├── arbitrage_detector.py       # Custom Bellman-Ford negative-weight cycle detection
+│   └── profit_calculator.py        # Compounding yields, step audit, and fee simulation
 ├── tests/
 │   ├── __init__.py                 # Test package marker
-│   └── test_arbitrage_detector.py  # Unit tests for arbitrage detection
+│   ├── test_exchange_rates.py      # Unit tests for rates and validation
+│   ├── test_graph_builder.py       # Unit tests for digraph construction and log weights
+│   ├── test_arbitrage_detector.py  # Unit tests for Bellman-Ford cycle detection
+│   └── test_profit_calculator.py   # Unit tests for profit and transaction-fee simulator
 └── docs/
     └── mathematical_framework.md   # Mathematical equations, proofs, and examples
 ```
 
 ---
 
-## 🛠️ Planned Core Modules
+## 🛠️ Implemented Core Modules
 
-- **`src/exchange_rates.py`:** Stores and validates conversion matrices and currency pairs.
-- **`src/graph_builder.py`:** Maps exchange rate data to directed graphs with weights $w(u, v) = -\ln(R_{u,v})$.
-- **`src/arbitrage_detector.py`:** Implements our custom Bellman–Ford algorithm to identify negative cycles and extract cycle paths.
-- **`src/profit_calculator.py`:** Computes compounding yields and percentage returns from detected cycles.
-- **`app.py`:** Streamlit-based graphical interface for interactive matrix inputs, graph visualization, and detection execution.
+- **`src/exchange_rates.py`:** Provides the `ConversionRate` dataclass, symbol validation, and simulated exchange rate datasets.
+- **`src/graph_builder.py`:** Constructs directed weighted graphs (NetworkX `DiGraph`) with original conversion rates and negative logarithmic edge weights $w(u, v) = -\ln(R_{u,v})$.
+- **`src/arbitrage_detector.py`:** Implements our custom Bellman–Ford algorithm from scratch with multi-component zero-initialization, edge relaxation, and predecessor backtracking to recover directed cycles.
+- **`src/profit_calculator.py`:** Simulates multi-hop capital compounding across detected cycles, deducting per-hop transaction fees and calculating gross/net profit, net returns, and breakeven fee thresholds ($f^*$).
+- **`app.py`:** Interactive Streamlit web dashboard with Plotly network digraph visualization, an exchange rate manager, real-time cycle detection, and fee simulation.
 
 ---
 
@@ -78,7 +81,7 @@ CryptoLab/
 ### Prerequisites
 - Python 3.9+ installed
 
-### Setup (When Ready)
+### Setup & Installation
 1. Create and activate a virtual environment:
    ```bash
    python -m venv venv
@@ -95,9 +98,34 @@ CryptoLab/
    ```bash
    streamlit run app.py
    ```
+   Open [http://localhost:8501](http://localhost:8501) in your browser.
 
 ---
 
-## ⚠️ Scope and Academic Notice
+## 🧪 Running Unit Tests
 
-This project is built strictly for educational and analytical purposes as part of a Discrete Mathematics course. It does not connect to live exchanges, execute real trades, require API keys, or provide financial advice.
+The test suite is built entirely with Python's standard `unittest` framework and requires no third-party test runners:
+
+```bash
+# Run all project tests with discovery
+python -m unittest discover tests -v
+
+# Run individual test modules
+python -m unittest tests/test_exchange_rates.py -v
+python -m unittest tests/test_graph_builder.py -v
+python -m unittest tests/test_arbitrage_detector.py -v
+python -m unittest tests/test_profit_calculator.py -v
+```
+
+---
+
+## ⚠️ Scope, Assumptions, and Real-World Limitations
+
+This project is built strictly for educational and analytical purposes as part of a Discrete Mathematics course.
+
+- **Simulated Data:** All exchange rates provided or demonstrated in this repository are illustrative, simulated data. The project does not connect to live exchanges, execute real trades, or require API keys.
+- **Simplified Simulation Model:** In production markets, real-world execution is subject to market frictions not included in this educational model:
+  1. **Slippage:** Real orders walk the order book, shifting execution prices unfavorably.
+  2. **Liquidity Depth:** Quoted rates assume infinite liquidity; actual order book volume is finite.
+  3. **Withdrawal Fees:** Moving assets across exchanges incurs flat or percentage withdrawal charges.
+  4. **Network Gas Fees:** On-chain decentralized exchange swaps incur variable blockchain transaction fees independent of trade volume.

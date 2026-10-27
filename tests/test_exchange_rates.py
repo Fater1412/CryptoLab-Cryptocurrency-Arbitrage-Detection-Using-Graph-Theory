@@ -13,6 +13,8 @@ from src.exchange_rates import (
     SIMULATION_DISCLAIMER,
     get_arbitrage_sample_rates,
     get_available_currencies,
+    get_fee_consumed_sample_rates,
+    get_inr_arbitrage_sample_rates,
     get_sample_rates,
     validate_conversion_rate,
     validate_rates,
@@ -138,6 +140,22 @@ class TestValidationFunctions(unittest.TestCase):
         self.assertEqual(rate.target, "BTC")
         self.assertEqual(rate.rate, 0.05)
 
+        # Also verify single dictionary input
+        dict_rate = validate_conversion_rate({"source": "BTC", "target": "ETH", "rate": 20.0})
+        self.assertIsInstance(dict_rate, ConversionRate)
+        self.assertEqual(dict_rate.source, "BTC")
+        self.assertEqual(dict_rate.target, "ETH")
+        self.assertEqual(dict_rate.rate, 20.0)
+
+    def test_get_inr_arbitrage_sample_rates(self) -> None:
+        """Verify simulated INR arbitrage rates dataset structure."""
+        rates = get_inr_arbitrage_sample_rates()
+        self.assertGreaterEqual(len(rates), 3)
+        currencies = {r.source for r in rates} | {r.target for r in rates}
+        self.assertIn("INR", currencies)
+        self.assertIn("USDT", currencies)
+        self.assertIn("BTC", currencies)
+
     def test_validate_rates_heterogeneous_input(self) -> None:
         """Verify validate_rates handles ConversionRate objects, dicts, and tuples."""
         raw_input = [
@@ -208,6 +226,21 @@ class TestSampleDatasets(unittest.TestCase):
         # Compute cycle product: 20.5 * 3000 * (1/60000) = 1.025 (> 1.0)
         product = rate_map[("BTC", "ETH")] * rate_map[("ETH", "USDT")] * rate_map[("USDT", "BTC")]
         self.assertAlmostEqual(product, 1.025, places=5)
+        self.assertGreater(product, 1.0)
+
+    def test_fee_consumed_sample_rates_validity(self) -> None:
+        """Verify that the fee-consumed arbitrage dataset is valid and produces +0.5% gross yield."""
+        fee_rates = get_fee_consumed_sample_rates()
+        self.assertGreater(len(fee_rates), 0)
+
+        rate_map = {(r.source, r.target): r.rate for r in fee_rates}
+        self.assertIn(("BTC", "ETH"), rate_map)
+        self.assertIn(("ETH", "USDT"), rate_map)
+        self.assertIn(("USDT", "BTC"), rate_map)
+
+        # 20.10 * 3000 * (1/60000) = 1.0050 (+0.5% gross)
+        product = rate_map[("BTC", "ETH")] * rate_map[("ETH", "USDT")] * rate_map[("USDT", "BTC")]
+        self.assertAlmostEqual(product, 1.005, places=5)
         self.assertGreater(product, 1.0)
 
 
